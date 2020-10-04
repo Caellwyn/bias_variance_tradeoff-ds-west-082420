@@ -56,21 +56,34 @@ expected_value = sum([probs * roll for roll in rolls])
 expected_value
 ```
 
+Now lets imagine we create a model that always predicts a roll of 3.
 
-
-
-    3.5
-
-
-
-- Now lets imagine we create a model that always predicts a roll of 3.
-
-    - The bias is the difference between the average prediction of our model and the average roll of the die as we roll more and more times.
+   
+  - The bias is the difference between the average prediction of our model and the average roll of the die as we roll more and more times.
         - What is the bias of a model that alway predicts 3? 
    
-   
-    - The variance is the average difference between each individual prediction and the average prediction of our model as we roll more and more times.
+
+
+```python
+from src.student_caller import one_random_student
+from src.student_list import student_first_names
+
+%load_ext autoreload
+%autoreload 2
+```
+
+
+```python
+one_random_student(student_first_names)
+```
+
+   - The variance is the average difference between each individual prediction and the average prediction of our model as we roll more and more times.
         - What is the variance of that model?
+
+
+```python
+one_random_student(student_first_names)
+```
 
 # 2. Defining Error: prediction error and irreducible error
 
@@ -91,33 +104,6 @@ expected_value
 
 ![residuals](img/residuals.png)
 
-
-# Individual Code: Turn Off Screen
-
- - Fit a quick and dirty linear regression model
- - Store predictions in the y_hat variable using predict() from the fit model
- - handcode SSE
- - Divide by the length of array to find Mean Squared Error
- - Make sure MSE equals sklearn's mean_squared_error function
- 
-
-
-```python
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
-np.random.seed(42)
-df = pd.read_csv('data/king_county.csv', index_col='id')
-df = df.iloc[:,:12]
-X = df.drop('price', axis=1)
-y = df.price
-
-y_hat = None
-sse = None
-mse = None
-rmse = None
-```
 
 ## This error can be broken up into parts:
 
@@ -159,6 +145,163 @@ http://scott.fortmann-roe.com/docs/BiasVariance.html
 
 
 
+### Let's take a look at our familiar King County housing data. 
+
+After some EDA, we have decided to choose 11 independent features predicting 1 target variable, price.
+
+
+```python
+import pandas as pd
+import numpy as np
+df = pd.read_csv('data/king_county.csv', index_col='id')
+df = df.iloc[:,:12]
+df.head()
+```
+
+Let's create a set of 100 trained models by randomly selecting 5000 records, and look at the difference in predictions w.r.t. 1 point.
+
+
+```python
+np.random.seed(11)
+
+sample_point = df.sample(1)
+true_sample_price = sample_point.price
+sample_point
+```
+
+
+```python
+sample_point.drop('price', axis=1, inplace=True)
+
+print(f'Sample home price {sample_target.values[0]}')
+sample_point.head()
+df.shape
+```
+
+
+```python
+df.drop(sample_target.index[0], axis=0, inplace=True)
+print(df.shape)
+```
+
+
+```python
+### from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+np.random.seed(11)
+
+# Let's generate random subsets of our data
+
+point_preds_simp = []
+simple_rmse = []
+
+for i in range(100):
+    
+    # Sample 5000 random homes
+    df_sample = df.sample(1000, replace=True)
+    y = df_sample.price
+    X = df_sample.drop('price', axis=1)
+    
+    # Create a trained model for each subset
+    lr = LinearRegression()
+    lr.fit(X, y)
+    
+    y_hat = lr.predict(X)
+    
+    # Calculate RMSE for each trained model
+    simple_rmse.append(np.sqrt(mean_squared_error(y, y_hat)))
+    
+    # Predict a value for the sample point
+    y_hat_point = lr.predict(sample_point)
+    
+    point_preds_simp.append(y_hat_point)
+    
+
+```
+
+Now let's use sklearn's polynomial transformation to create a relatively complex version of our model.  
+[Poly_transform blog](https://machinelearningmastery.com/polynomial-features-transforms-for-machine-learning/)
+
+
+
+```python
+from sklearn.preprocessing import PolynomialFeatures
+
+# This will create a feature set of each feature squared, as well as interaction features between each independent variable.
+pf = PolynomialFeatures(2, include_bias=False)
+
+df_poly = pd.DataFrame(pf.fit_transform(df.drop('price', axis=1)))
+df_poly.index = df.index
+df_poly['price'] = df['price']
+
+cols = list(df_poly)
+# move the column to head of list using index, pop and insert
+cols.insert(0, cols.pop(cols.index('price')))
+
+df_poly = df_poly.loc[:,cols]
+
+df_poly.head(10)
+```
+
+
+```python
+
+# Isolate the poly-transformed version of our sample point
+sample_point = pf.transform(sample_point)
+sample_point
+```
+
+Then train 100 models using our complex features set on samples of size 5000.
+
+
+```python
+np.random.seed(11)
+
+point_preds_comp = []
+complex_rmse = []
+for i in range(100):
+    
+    df_sample = df_poly.sample(1000, replace=True)
+    y = df_sample.price
+    X = df_sample.drop('price', axis=1)
+    
+    lr = LinearRegression()
+    lr.fit(X, y)
+    y_hat = lr.predict(X)
+    complex_rmse.append(np.sqrt(mean_squared_error(y, y_hat)))
+    r_2.append(lr.score(X,y))
+    
+    y_hat_point = lr.predict(sample_point)
+    
+    point_preds_comp.append(y_hat_point)
+    
+```
+
+
+```python
+print("#################### BIAS ###########################")
+print(f'mean simple prediction      {np.mean(point_preds_simp)}')
+print(f'mean complex prediction     {np.mean(point_preds_comp)}')
+print(f'true value                  {true_sample_price}')
+print("################## VARIANCE #########################")
+print(f'simp variance {np.var(point_preds_simp)}')
+print(f'comp variance {np.var(point_preds_comp)}')
+```
+
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+fig, (ax1, ax2) = plt.subplots(2,1, sharex=True, figsize=(12,10))
+
+sns.violinplot(point_preds_simp, ax=ax1, orient='h', color='orange')
+ax1.set_title("Simple Model")
+ax1.axvline(true_sample_price.values[0])
+sns.violinplot(point_preds_comp, ax=ax2, orient='h', color='yellow')
+ax2.axvline(true_sample_price.values[0])
+ax2.set_title("Complex Model");
+```
+
 # 4.  Explore Bias Variance Tradeoff
 
 **High bias** algorithms tend to be less complex, with simple or rigid underlying structure.
@@ -191,574 +334,6 @@ The goal is to build a model with enough complexity to be accurate, but not too 
 ![optimal](img/optimal_bias_variance.png)
 http://scott.fortmann-roe.com/docs/BiasVariance.html
 
-### Let's take a look at our familiar King County housing data. 
-
-
-```python
-import pandas as pd
-import numpy as np
-np.random.seed(42)
-df = pd.read_csv('data/king_county.csv', index_col='id')
-df = df.iloc[:,:12]
-df.head()
-```
-
-
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>price</th>
-      <th>bedrooms</th>
-      <th>bathrooms</th>
-      <th>sqft_living</th>
-      <th>sqft_lot</th>
-      <th>floors</th>
-      <th>waterfront</th>
-      <th>view</th>
-      <th>condition</th>
-      <th>grade</th>
-      <th>sqft_above</th>
-      <th>sqft_basement</th>
-    </tr>
-    <tr>
-      <th>id</th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>7129300520</th>
-      <td>221900.0</td>
-      <td>3</td>
-      <td>1.00</td>
-      <td>1180</td>
-      <td>5650</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>7</td>
-      <td>1180</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <th>6414100192</th>
-      <td>538000.0</td>
-      <td>3</td>
-      <td>2.25</td>
-      <td>2570</td>
-      <td>7242</td>
-      <td>2.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>7</td>
-      <td>2170</td>
-      <td>400</td>
-    </tr>
-    <tr>
-      <th>5631500400</th>
-      <td>180000.0</td>
-      <td>2</td>
-      <td>1.00</td>
-      <td>770</td>
-      <td>10000</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>6</td>
-      <td>770</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <th>2487200875</th>
-      <td>604000.0</td>
-      <td>4</td>
-      <td>3.00</td>
-      <td>1960</td>
-      <td>5000</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>5</td>
-      <td>7</td>
-      <td>1050</td>
-      <td>910</td>
-    </tr>
-    <tr>
-      <th>1954400510</th>
-      <td>510000.0</td>
-      <td>3</td>
-      <td>2.00</td>
-      <td>1680</td>
-      <td>8080</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>8</td>
-      <td>1680</td>
-      <td>0</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
-
-
-```python
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
-np.random.seed(42)
-
-# Let's generate random subsets of our data
-
-#Date  is not in the correct format so we are dropping it for now.
-sample_point = df.drop('price', axis=1).sample(1)
-point_preds = []
-
-r_2 = []
-simple_rmse = []
-
-for i in range(100):
-    
-    df_sample = df.sample(5000, replace=True)
-    y = df_sample.price
-    X = df_sample.drop('price', axis=1)
-    
-    lr = LinearRegression()
-    lr.fit(X, y)
-    
-    y_hat = lr.predict(X)
-    simple_rmse.append(np.sqrt(mean_squared_error(y, y_hat)))
-    r_2.append(lr.score(X,y))
-    
-    y_hat_point = lr.predict(sample_point)
-    
-    point_preds.append(y_hat_point)
-    
-
-```
-
-
-```python
-print(f'simple mean {np.mean(simple_rmse)}')
-print(f'simple variance {np.var(point_preds)}')
-```
-
-    simple mean 228460.56183597515
-    simple variance 77297954.16271643
-
-
-
-```python
-from sklearn.preprocessing import PolynomialFeatures
-
-
-df = pd.read_csv('data/king_county.csv', index_col='id')
-
-pf = PolynomialFeatures(2)
-
-df_poly = pd.DataFrame(pf.fit_transform(df.drop('price', axis=1)))
-df_poly.index = df.index
-df_poly['price'] = df['price']
-
-cols = list(df_poly)
-# move the column to head of list using index, pop and insert
-cols.insert(0, cols.pop(cols.index('price')))
-
-df_poly = df_poly.loc[:,cols]
-
-df_poly.head(10)
-```
-
-
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>price</th>
-      <th>0</th>
-      <th>1</th>
-      <th>2</th>
-      <th>3</th>
-      <th>4</th>
-      <th>5</th>
-      <th>6</th>
-      <th>7</th>
-      <th>8</th>
-      <th>...</th>
-      <th>68</th>
-      <th>69</th>
-      <th>70</th>
-      <th>71</th>
-      <th>72</th>
-      <th>73</th>
-      <th>74</th>
-      <th>75</th>
-      <th>76</th>
-      <th>77</th>
-    </tr>
-    <tr>
-      <th>id</th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>7129300520</th>
-      <td>221900.0</td>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>1.00</td>
-      <td>1180.0</td>
-      <td>5650.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>21.0</td>
-      <td>3540.0</td>
-      <td>0.0</td>
-      <td>49.0</td>
-      <td>8260.0</td>
-      <td>0.0</td>
-      <td>1392400.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>6414100192</th>
-      <td>538000.0</td>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>2.25</td>
-      <td>2570.0</td>
-      <td>7242.0</td>
-      <td>2.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>21.0</td>
-      <td>6510.0</td>
-      <td>1200.0</td>
-      <td>49.0</td>
-      <td>15190.0</td>
-      <td>2800.0</td>
-      <td>4708900.0</td>
-      <td>868000.0</td>
-      <td>160000.0</td>
-    </tr>
-    <tr>
-      <th>5631500400</th>
-      <td>180000.0</td>
-      <td>1.0</td>
-      <td>2.0</td>
-      <td>1.00</td>
-      <td>770.0</td>
-      <td>10000.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>18.0</td>
-      <td>2310.0</td>
-      <td>0.0</td>
-      <td>36.0</td>
-      <td>4620.0</td>
-      <td>0.0</td>
-      <td>592900.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>2487200875</th>
-      <td>604000.0</td>
-      <td>1.0</td>
-      <td>4.0</td>
-      <td>3.00</td>
-      <td>1960.0</td>
-      <td>5000.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>5.0</td>
-      <td>...</td>
-      <td>25.0</td>
-      <td>35.0</td>
-      <td>5250.0</td>
-      <td>4550.0</td>
-      <td>49.0</td>
-      <td>7350.0</td>
-      <td>6370.0</td>
-      <td>1102500.0</td>
-      <td>955500.0</td>
-      <td>828100.0</td>
-    </tr>
-    <tr>
-      <th>1954400510</th>
-      <td>510000.0</td>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>2.00</td>
-      <td>1680.0</td>
-      <td>8080.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>24.0</td>
-      <td>5040.0</td>
-      <td>0.0</td>
-      <td>64.0</td>
-      <td>13440.0</td>
-      <td>0.0</td>
-      <td>2822400.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>7237550310</th>
-      <td>1225000.0</td>
-      <td>1.0</td>
-      <td>4.0</td>
-      <td>4.50</td>
-      <td>5420.0</td>
-      <td>101930.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>33.0</td>
-      <td>11670.0</td>
-      <td>4590.0</td>
-      <td>121.0</td>
-      <td>42790.0</td>
-      <td>16830.0</td>
-      <td>15132100.0</td>
-      <td>5951700.0</td>
-      <td>2340900.0</td>
-    </tr>
-    <tr>
-      <th>1321400060</th>
-      <td>257500.0</td>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>2.25</td>
-      <td>1715.0</td>
-      <td>6819.0</td>
-      <td>2.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>21.0</td>
-      <td>5145.0</td>
-      <td>0.0</td>
-      <td>49.0</td>
-      <td>12005.0</td>
-      <td>0.0</td>
-      <td>2941225.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>2008000270</th>
-      <td>291850.0</td>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>1.50</td>
-      <td>1060.0</td>
-      <td>9711.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>21.0</td>
-      <td>3180.0</td>
-      <td>0.0</td>
-      <td>49.0</td>
-      <td>7420.0</td>
-      <td>0.0</td>
-      <td>1123600.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>2414600126</th>
-      <td>229500.0</td>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>1.00</td>
-      <td>1780.0</td>
-      <td>7470.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>21.0</td>
-      <td>3150.0</td>
-      <td>2190.0</td>
-      <td>49.0</td>
-      <td>7350.0</td>
-      <td>5110.0</td>
-      <td>1102500.0</td>
-      <td>766500.0</td>
-      <td>532900.0</td>
-    </tr>
-    <tr>
-      <th>3793500160</th>
-      <td>323000.0</td>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>2.50</td>
-      <td>1890.0</td>
-      <td>6560.0</td>
-      <td>2.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>...</td>
-      <td>9.0</td>
-      <td>21.0</td>
-      <td>5670.0</td>
-      <td>0.0</td>
-      <td>49.0</td>
-      <td>13230.0</td>
-      <td>0.0</td>
-      <td>3572100.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-  </tbody>
-</table>
-<p>10 rows × 79 columns</p>
-</div>
-
-
-
-
-```python
-np.random.seed(42)
-
-sample_point = df_poly.drop('price', axis=1).sample(1)
-
-
-r_2 = []
-point_preds_comp = []
-complex_rmse = []
-for i in range(100):
-    
-    df_sample = df_poly.sample(1000, replace=True)
-    y = df_sample.price
-    X = df_sample.drop('price', axis=1)
-    
-    lr = LinearRegression()
-    lr.fit(X, y)
-    y_hat = lr.predict(X)
-    complex_rmse.append(np.sqrt(mean_squared_error(y, y_hat)))
-    r_2.append(lr.score(X,y))
-    
-    y_hat_point = lr.predict(sample_point)
-    
-    point_preds_comp.append(y_hat_point)
-    
-```
-
-
-```python
-print(f'simpl mean {np.mean(simple_rmse)}')
-print(f'compl mean {np.mean(complex_rmse)}')
-
-print(f'simp variance {np.var(point_preds)}')
-print(f'comp variance {np.var(point_preds_comp)}')
-```
-
-    simpl mean 228460.56183597515
-    compl mean 193508.74007561
-    simp variance 77297954.16271643
-    comp variance 1311682449.9857328
 
 
 ![which_model](img/which_model_is_better_2.png)
@@ -800,12 +375,6 @@ print(X_train.shape[0] == y_train.shape[0])
 print(X_test.shape[0] == y_test.shape[0])
 ```
 
-    (16209, 2)
-    (5404, 2)
-    True
-    True
-
-
 **How do we know if our model is overfitting or underfitting?**
 
 
@@ -830,7 +399,7 @@ Fill in the variable to correctly finish the sentences.
 b_or_v = 'add a letter'
 over_under = 'add a number'
 
-one = "The model has a high R^2 on both the training set, but low on the test " +  b_or_v + " " + over_under
+one = "The model has a high R^2 on the training set, but low on the test " +  b_or_v + " " + over_under
 two = "The model has a low RMSE on training and a low RMSE on test" + b_or_v + " " + over_under
 three = "The model performs well on data it is fit on and well on data it has not seen" + b_or_v + " " + over_under
 seven = "The model has high R^2 on the training set and low R^2 on the test"  + b_or_v + " " + over_under
@@ -873,138 +442,6 @@ df = pd.read_csv('data/king_county.csv', index_col='id')
 df.head()
 ```
 
-
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>price</th>
-      <th>bedrooms</th>
-      <th>bathrooms</th>
-      <th>sqft_living</th>
-      <th>sqft_lot</th>
-      <th>floors</th>
-      <th>waterfront</th>
-      <th>view</th>
-      <th>condition</th>
-      <th>grade</th>
-      <th>sqft_above</th>
-      <th>sqft_basement</th>
-    </tr>
-    <tr>
-      <th>id</th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>7129300520</th>
-      <td>221900.0</td>
-      <td>3</td>
-      <td>1.00</td>
-      <td>1180</td>
-      <td>5650</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>7</td>
-      <td>1180</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <th>6414100192</th>
-      <td>538000.0</td>
-      <td>3</td>
-      <td>2.25</td>
-      <td>2570</td>
-      <td>7242</td>
-      <td>2.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>7</td>
-      <td>2170</td>
-      <td>400</td>
-    </tr>
-    <tr>
-      <th>5631500400</th>
-      <td>180000.0</td>
-      <td>2</td>
-      <td>1.00</td>
-      <td>770</td>
-      <td>10000</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>6</td>
-      <td>770</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <th>2487200875</th>
-      <td>604000.0</td>
-      <td>4</td>
-      <td>3.00</td>
-      <td>1960</td>
-      <td>5000</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>5</td>
-      <td>7</td>
-      <td>1050</td>
-      <td>910</td>
-    </tr>
-    <tr>
-      <th>1954400510</th>
-      <td>510000.0</td>
-      <td>3</td>
-      <td>2.00</td>
-      <td>1680</td>
-      <td>8080</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>8</td>
-      <td>1680</td>
-      <td>0</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
-
 Now, we create a train-test split via the sklearn model selection package.
 
 
@@ -1013,7 +450,7 @@ from sklearn.model_selection import train_test_split
 np.random.seed(42)
 
 y = df.price
-X = df[['bedrooms', 'sqft_living']]
+X = df.drop('price', axis=1)
 
 # Here is the convention for a traditional train-test split
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=43, test_size=.25)
@@ -1032,36 +469,15 @@ lr.fit(X_train, y_train)
 ```
 
 
-
-
-    LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None, normalize=False)
-
-
-
-
 ```python
 # Check the R^2 of the training data
 lr.score(X_train, y_train)
 ```
 
 
-
-
-    0.5132349854445817
-
-
-
-
 ```python
 lr.coef_
 ```
-
-
-
-
-    array([-54632.9149931 ,    311.65365556])
-
-
 
 A .513 R-squared reflects a model that explains aabout half of the total variance in the data. 
 
@@ -1081,13 +497,6 @@ Next, we test how well the model performs on the unseen test data. Remember, we 
 lr.score(X_test, y_test)
 ```
 
-
-
-
-    0.48688154021233165
-
-
-
 The difference between the train and test scores are low.
 
 What does that indicate about variance?
@@ -1099,138 +508,6 @@ What does that indicate about variance?
 df = pd.read_csv('data/king_county.csv', index_col='id')
 df.head()
 ```
-
-
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>price</th>
-      <th>bedrooms</th>
-      <th>bathrooms</th>
-      <th>sqft_living</th>
-      <th>sqft_lot</th>
-      <th>floors</th>
-      <th>waterfront</th>
-      <th>view</th>
-      <th>condition</th>
-      <th>grade</th>
-      <th>sqft_above</th>
-      <th>sqft_basement</th>
-    </tr>
-    <tr>
-      <th>id</th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>7129300520</th>
-      <td>221900.0</td>
-      <td>3</td>
-      <td>1.00</td>
-      <td>1180</td>
-      <td>5650</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>7</td>
-      <td>1180</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <th>6414100192</th>
-      <td>538000.0</td>
-      <td>3</td>
-      <td>2.25</td>
-      <td>2570</td>
-      <td>7242</td>
-      <td>2.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>7</td>
-      <td>2170</td>
-      <td>400</td>
-    </tr>
-    <tr>
-      <th>5631500400</th>
-      <td>180000.0</td>
-      <td>2</td>
-      <td>1.00</td>
-      <td>770</td>
-      <td>10000</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>6</td>
-      <td>770</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <th>2487200875</th>
-      <td>604000.0</td>
-      <td>4</td>
-      <td>3.00</td>
-      <td>1960</td>
-      <td>5000</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>5</td>
-      <td>7</td>
-      <td>1050</td>
-      <td>910</td>
-    </tr>
-    <tr>
-      <th>1954400510</th>
-      <td>510000.0</td>
-      <td>3</td>
-      <td>2.00</td>
-      <td>1680</td>
-      <td>8080</td>
-      <td>1.0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>3</td>
-      <td>8</td>
-      <td>1680</td>
-      <td>0</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
 
 
 ```python
@@ -1245,178 +522,6 @@ X_poly.head()
 ```
 
 
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>0</th>
-      <th>1</th>
-      <th>2</th>
-      <th>3</th>
-      <th>4</th>
-      <th>5</th>
-      <th>6</th>
-      <th>7</th>
-      <th>8</th>
-      <th>9</th>
-      <th>...</th>
-      <th>354</th>
-      <th>355</th>
-      <th>356</th>
-      <th>357</th>
-      <th>358</th>
-      <th>359</th>
-      <th>360</th>
-      <th>361</th>
-      <th>362</th>
-      <th>363</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>1.00</td>
-      <td>1180.0</td>
-      <td>5650.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>7.0</td>
-      <td>...</td>
-      <td>343.0</td>
-      <td>57820.0</td>
-      <td>0.0</td>
-      <td>9746800.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>1.643032e+09</td>
-      <td>0.000000e+00</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>2.25</td>
-      <td>2570.0</td>
-      <td>7242.0</td>
-      <td>2.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>7.0</td>
-      <td>...</td>
-      <td>343.0</td>
-      <td>106330.0</td>
-      <td>19600.0</td>
-      <td>32962300.0</td>
-      <td>6076000.0</td>
-      <td>1120000.0</td>
-      <td>1.021831e+10</td>
-      <td>1.883560e+09</td>
-      <td>347200000.0</td>
-      <td>64000000.0</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>1.0</td>
-      <td>2.0</td>
-      <td>1.00</td>
-      <td>770.0</td>
-      <td>10000.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>6.0</td>
-      <td>...</td>
-      <td>216.0</td>
-      <td>27720.0</td>
-      <td>0.0</td>
-      <td>3557400.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>4.565330e+08</td>
-      <td>0.000000e+00</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>1.0</td>
-      <td>4.0</td>
-      <td>3.00</td>
-      <td>1960.0</td>
-      <td>5000.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>5.0</td>
-      <td>7.0</td>
-      <td>...</td>
-      <td>343.0</td>
-      <td>51450.0</td>
-      <td>44590.0</td>
-      <td>7717500.0</td>
-      <td>6688500.0</td>
-      <td>5796700.0</td>
-      <td>1.157625e+09</td>
-      <td>1.003275e+09</td>
-      <td>869505000.0</td>
-      <td>753571000.0</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>1.0</td>
-      <td>3.0</td>
-      <td>2.00</td>
-      <td>1680.0</td>
-      <td>8080.0</td>
-      <td>1.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3.0</td>
-      <td>8.0</td>
-      <td>...</td>
-      <td>512.0</td>
-      <td>107520.0</td>
-      <td>0.0</td>
-      <td>22579200.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>4.741632e+09</td>
-      <td>0.000000e+00</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-  </tbody>
-</table>
-<p>5 rows × 364 columns</p>
-</div>
-
-
-
-
 ```python
 X_train, X_test, y_train, y_test = train_test_split(X_poly, y, random_state=20, test_size=.25)
 lr_poly = LinearRegression()
@@ -1426,13 +531,6 @@ lr_poly.fit(X_train, y_train)
 
 lr_poly.score(X_train, y_train)
 ```
-
-
-
-
-    0.7133044254532317
-
-
 
 
 ```python
@@ -1445,13 +543,6 @@ lr_poly.score(X_test, y_test)
 ```
 
 
-
-
-    0.6119026292718351
-
-
-
-
 ```python
 # There is a large difference between train and test, showing high variance.
 ```
@@ -1460,7 +551,7 @@ lr_poly.score(X_test, y_test)
 
 ##### [Link](https://datascience.stackexchange.com/questions/38395/standardscaler-before-and-after-splitting-data) about data leakage and scalars
 
-The link above explains that if you are going to scale your data, you should only train your scalar on the training data to prevent data leakage.  
+The link above explains that if you are going to scale your data, you should only train your scaler on the training data to prevent data leakage.  
 
 Perform the same train test split as shown aboe for the simple model, but now scale your data appropriately.  
 
@@ -1473,12 +564,13 @@ from sklearn.preprocessing import StandardScaler
 np.random.seed(42)
 
 y = df.price
-X = df[['bedrooms', 'sqft_living']]
+X = df.drop('price', axis=1)
 
 # Train test split with random_state=43 and test_size=.25
 
+# Instantiate an instance of Standard Scaler, and fit/transform on the training data
 
-# Scale appropriately
+# Transform the test data with the fit scalar
 
 # fit and score the model 
 
@@ -1502,21 +594,15 @@ We tune our parameters on the training set using kfolds, then validate on the te
 
 
 ```python
-mccalister = ['Adam', 'Amanda','Chum', 'Dann', 
- 'Jacob', 'Jason', 'Johnhoy', 'Karim', 
-'Leana','Luluva', 'Matt', 'Maximilian','Syd' ]
-
-choice = np.random.choice(mccalister)
-print(choice)
+one_random_student(student_first_names)
 ```
-
-    Maximilian
-
 
 
 ```python
 X = df.drop('price', axis=1)
 y = df.price
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=43, test_size=.25)
 
 ```
 
@@ -1531,33 +617,17 @@ train_r2 = []
 test_r2 = []
 
 # kf.split() splits the data via index
-for train_ind, test_ind in kf.split(X,y):
+for train_ind, test_ind in kf.split(X_train,y_train):
     
-    X_train, y_train = fill_in, fill_in
-    X_test, y_test = fill_in, fill_in
+    X_tt, y_ttt = fill_in, fill_in
+    X_val, y_val = fill_in, fill_in
     
     # fill in fit
     
     
-    train_r2.append(lr.score(X_train, y_train))
-    test_r2.append(lr.score(X_test, y_test))
+    train_r2.append(lr.score(X_tt, y_tt))
+    test_r2.append(lr.score(X_val, y_val))
 ```
-
-
-    ---------------------------------------------------------------------------
-
-    NameError                                 Traceback (most recent call last)
-
-    <ipython-input-75-0cd4b40a7ee8> in <module>
-         10 for train_ind, test_ind in kf.split(X,y):
-         11 
-    ---> 12     X_train, y_train = fill_in, fill_in
-         13     X_test, y_test = fill_in, fill_in
-         14 
-
-
-    NameError: name 'fill_in' is not defined
-
 
 
 ```python
@@ -1566,24 +636,10 @@ np.mean(train_r2)
 ```
 
 
-
-
-    0.5068353530791848
-
-
-
-
 ```python
 # Mean test r_2
-np.mean(test_r2)
+np.mean(val_r2)
 ```
-
-
-
-
-    0.5043547355695521
-
-
 
 
 ```python
@@ -1601,18 +657,20 @@ y = df.price
 
 
 ```python
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=43, test_size=.25)
+
 kf = KFold(n_splits=5)
 
 train_r2 = []
-test_r2 = []
-for train_ind, test_ind in kf.split(X,y):
+val_r2 = []
+for train_ind, test_ind in kf.split(X_train,y_train):
     
-    X_train, y_train = X.iloc[train_ind], y.iloc[train_ind]
-    X_test, y_test = X.iloc[test_ind], y.iloc[test_ind]
+    X_tt, y_tt = X_train.iloc[train_ind], y_train.iloc[train_ind]
+    X_val, y_val = X_train.iloc[test_ind], y_train.iloc[test_ind]
     
-    lr.fit(X_train, y_train)
-    train_r2.append(lr.score(X_train, y_train))
-    test_r2.append(lr.score(X_test, y_test))
+    lr.fit(X_tt, y_tt)
+    train_r2.append(lr.score(X_tt, y_tt))
+    val_r2.append(lr.score(X_val, y_val))
 ```
 
 
@@ -1622,25 +680,22 @@ np.mean(train_r2)
 ```
 
 
+```python
+# Mean test r_2
+np.mean(val_r2)
+```
 
+By using this split, we can use the training set as a test ground to build a model with both low bias and low variance.
+We can test out new independent variables, try transformations, implement regularization, up/down sampling, without introducing bias into our model.
 
-    0.6954523534689443
+Once we have an acceptable model, we train our model on the entire training set, and score on the test to validate.
 
 
 
 
 ```python
-# Mean test r_2
-np.mean(test_r2)
+lr_final = LinearRegression()
+lr_final.fit(X_train, y_train)
+
+lr_final.score(X_test, y_test)
 ```
-
-
-
-
-    0.6606213729380702
-
-
-
-Once we have an acceptable model, we train our model on the entire training set, and score on the test to validate.
-
-
