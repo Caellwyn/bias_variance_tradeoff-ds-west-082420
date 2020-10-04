@@ -47,13 +47,14 @@ https://towardsdatascience.com/cultural-overfitting-and-underfitting-or-why-the-
 
 ### The expected value of a 6-sided die is:
 
-- Now lets imagine we create a model that always predicts a roll of 3.
+Now lets imagine we create a model that always predicts a roll of 3.
 
-    - The bias is the difference between the average prediction of our model and the average roll of the die as we roll more and more times.
+   
+  - The bias is the difference between the average prediction of our model and the average roll of the die as we roll more and more times.
         - What is the bias of a model that alway predicts 3? 
    
-   
-    - The variance is the average difference between each individual prediction and the average prediction of our model as we roll more and more times.
+
+   - The variance is the average difference between each individual prediction and the average prediction of our model as we roll more and more times.
         - What is the variance of that model?
 
 # 2. Defining Error: prediction error and irreducible error
@@ -74,45 +75,6 @@ https://towardsdatascience.com/cultural-overfitting-and-underfitting-or-why-the-
  All are calculated using residuals    
 
 ![residuals](img/residuals.png)
-
-
-# Individual Code: Turn Off Screen
-
- - Fit a quick and dirty linear regression model
- - Store predictions in the y_hat variable using predict() from the fit model
- - handcode SSE
- - Divide by the length of array to find Mean Squared Error
- - Make sure MSE equals sklearn's mean_squared_error function
- 
-
-
-```python
-
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
-np.random.seed(42)
-df = pd.read_csv('data/king_county.csv', index_col='id')
-df = df.iloc[:,:12]
-X = df.drop('price', axis=1)
-y = df.price
-lr = LinearRegression()
-lr.fit(X,y)
-
-y_hat = lr.predict(X)
-
-sse = sum((y_hat - y)**2)
-mse = sse/len(y_hat)
-rmse = np.sqrt(mse)
-print(mean_squared_error(y, y_hat))
-print(mse)
-print(rmse)
-```
-
-    53170511676.69001
-    53170511676.68982
-    230587.3189849993
 
 
 ## This error can be broken up into parts:
@@ -155,6 +117,18 @@ http://scott.fortmann-roe.com/docs/BiasVariance.html
 
 
 
+### Let's take a look at our familiar King County housing data. 
+
+After some EDA, we have decided to choose 11 independent features predicting 1 target variable, price.
+
+Let's create a set of 100 trained models by randomly selecting 5000 records, and look at the difference in predictions w.r.t. 1 point.
+
+Now let's use sklearn's polynomial transformation to create a relatively complex version of our model.  
+[Poly_transform blog](https://machinelearningmastery.com/polynomial-features-transforms-for-machine-learning/)
+
+
+Then train 100 models using our complex features set on samples of size 5000.
+
 # 4.  Explore Bias Variance Tradeoff
 
 **High bias** algorithms tend to be less complex, with simple or rigid underlying structure.
@@ -187,7 +161,7 @@ The goal is to build a model with enough complexity to be accurate, but not too 
 ![optimal](img/optimal_bias_variance.png)
 http://scott.fortmann-roe.com/docs/BiasVariance.html
 
-### Let's take a look at our familiar King County housing data. 
+
 
 ![which_model](img/which_model_is_better_2.png)
 
@@ -257,14 +231,6 @@ print(six)
 
 ```
 
-    The model has a low RMSE on training and a low RMSE on test. The model has high bias and low variance. In otherwords, it is underfit.
-    The model has a high R^2 on both the training set, but low on the test. The model has low bias and high variance. In otherwords, it is overfit.
-    The model performs well on data it is fit on and well on data it has not seen. The model has both low bias and variance In otherwords, we have a solid model
-    The model leaves out many of the meaningful predictors, but is consistent across samples. The model has high bias and low variance. In otherwords, it is underfit.
-    The model is highly sensitive to random noise in the training setadd a letter add a number
-    The model is highly sensitive to random noise in the training set. The model has low bias and high variance. In otherwords, it is overfit.
-
-
 ### Should you ever fit on your test set?  
 
 
@@ -286,15 +252,8 @@ How would you describe the bias of the model based on the above training R^2?
 
 
 ```python
-"A model with a .513 R^2 has a fairly high bias."
+"A model with a .608 R^2 has a relatively high bias."
 ```
-
-
-
-
-    'A model with a .513 R^2 has a relatively high bias.'
-
-
 
 Next, we test how well the model performs on the unseen test data. Remember, we do not fit the model again. The model has calculated the optimal parameters learning from the training set.  
 
@@ -308,20 +267,13 @@ What does that indicate about variance?
 'The model has low variance'
 ```
 
-
-
-
-    'The model has low variance'
-
-
-
 # Now, let's try the same thing with our complex, polynomial model.
 
 # Pair Exercise
 
 ##### [Link](https://datascience.stackexchange.com/questions/38395/standardscaler-before-and-after-splitting-data) about data leakage and scalars
 
-The link above explains that if you are going to scale your data, you should only train your scalar on the training data to prevent data leakage.  
+The link above explains that if you are going to scale your data, you should only train your scaler on the training data to prevent data leakage.  
 
 Perform the same train test split as shown aboe for the simple model, but now scale your data appropriately.  
 
@@ -341,10 +293,6 @@ lr.fit(X_train, y_train)
 print(lr.score(X_train, y_train))
 print(lr.score(X_test, y_test))
 ```
-
-    0.5132349854445817
-    0.48688154021233154
-
 
 # Kfolds: Even More Rigorous Validation  
 
@@ -370,16 +318,19 @@ from sklearn.model_selection import KFold
 kf = KFold(n_splits=5)
 
 train_r2 = []
-test_r2 = []
-for train_ind, test_ind in kf.split(X,y):
+val_r2 = []
+for train_ind, test_ind in kf.split(X_train,y_train):
     
-    X_train, y_train = X.iloc[train_ind], y.iloc[train_ind]
-    X_test, y_test = X.iloc[test_ind], y.iloc[test_ind]
+    X_tt, y_tt = X_train.iloc[train_ind], y_train.iloc[train_ind]
+    X_val, y_val = X_train.iloc[test_ind], y_train.iloc[test_ind]
     
-    lr.fit(X_train, y_train)
-    train_r2.append(lr.score(X_train, y_train))
-    test_r2.append(lr.score(X_test, y_test))
+    lr.fit(X_tt, y_tt)
+    train_r2.append(lr.score(X_tt, y_tt))
+    val_r2.append(lr.score(X_val, y_val))
 ```
+
+By using this split, we can use the training set as a test ground to build a model with both low bias and low variance.
+We can test out new independent variables, try transformations, implement regularization, up/down sampling, without introducing bias into our model.
 
 Once we have an acceptable model, we train our model on the entire training set, and score on the test to validate.
 
