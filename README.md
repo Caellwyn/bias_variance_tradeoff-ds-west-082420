@@ -334,6 +334,24 @@ for train_ind, test_ind in kf.split(X_train,y_train):
     val_r2.append(lr.score(X_val, y_val))
 ```
 
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=43, test_size=.25)
+
+kf = KFold(n_splits=5)
+
+train_r2 = []
+val_r2 = []
+for train_ind, test_ind in kf.split(X_train,y_train):
+    
+    X_tt, y_tt = X_train.iloc[train_ind], y_train.iloc[train_ind]
+    X_val, y_val = X_train.iloc[test_ind], y_train.iloc[test_ind]
+    
+    lr.fit(X_tt, y_tt)
+    train_r2.append(lr.score(X_tt, y_tt))
+    val_r2.append(lr.score(X_val, y_val))
+```
+
 By using this split, we can use the training set as a test ground to build a model with both low bias and low variance.
 We can test out new independent variables, try transformations, implement regularization, up/down sampling, without introducing bias into our model.
 
