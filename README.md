@@ -31,7 +31,7 @@ https://towardsdatascience.com/cultural-overfitting-and-underfitting-or-why-the-
 # What is a “Model”?
 
  - A “model” is a general specification of relationships among variables. 
-     - E.G. Linear Regression: or $ Price = \beta_1*Time +  \beta_0 + \epsilon$
+     - E.G. Linear Regression: or $ Price = \beta_1*Y_{t-1} +  \beta_0 + \epsilon$
 
 
  
@@ -108,7 +108,7 @@ $\Large Total\ Error = Model\ Bias^2 + Model\ Variance + Irreducible\ Error$
 # Thought Experiment
 
 1. Imagine you've collected 23 different training sets for the same problem.
-2. Now imagine using one algorithm to train 23 models, one for each of your training sets.
+2. Now imagine training one model on each of your 23 training sets.
 3. Bias vs. variance refers to the accuracy vs. consistency of the models trained by your algorithm.
 
 ![target_bias_variance](img/target.png)
@@ -121,13 +121,18 @@ http://scott.fortmann-roe.com/docs/BiasVariance.html
 
 After some EDA, we have decided to choose 11 independent features predicting 1 target variable, price.
 
-Let's create a set of 100 trained models by randomly selecting 5000 records, and look at the difference in predictions w.r.t. 1 point.
+Let's create a set of 100 trained models by randomly selecting 1000 records, and look at the difference in predictions w.r.t. 1 point.
 
 Now let's use sklearn's polynomial transformation to create a relatively complex version of our model.  
 [Poly_transform blog](https://machinelearningmastery.com/polynomial-features-transforms-for-machine-learning/)
 
 
 Then train 100 models using our complex features set on samples of size 5000.
+
+![stretch goal](https://media.giphy.com/media/XBG7hzVQymRJk2LPpE/giphy.gif)
+
+If you are curious after class, try fitting a 3rd order polynomial and plot the predictions w.r.t. the sample point. The mean of your predictions should align more tightly around the true value, but the variance should be much larger.
+
 
 # 4.  Explore Bias Variance Tradeoff
 
@@ -192,7 +197,7 @@ If the model performs way worse on the  unseen data, it is probably  overfitting
 
 <img src='https://developers.google.com/machine-learning/crash-course/images/WorkflowWithTestSet.svg' width=500/>
 
-# Word Play in groups
+# Word Play
 
 Fill in the variable to correctly finish the sentences.
 
