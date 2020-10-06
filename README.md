@@ -756,7 +756,7 @@ np.mean(val_r2)
 
 ```python
 # Test out our polynomial model
-poly_2 = PolynomialFeatures(2)
+poly_2 = PolynomialFeatures(2, include_bias=False)
 
 df_poly = pd.DataFrame(
             poly_2.fit_transform(df.drop('price', axis=1))
@@ -765,10 +765,20 @@ df_poly = pd.DataFrame(
 X = df_poly
 y = df.price
 
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=43, test_size=.25)
+
+kf = KFold(n_splits=5)
+
+train_r2 = []
+val_r2 = []
+
+# Your code here
+
 ```
 
 
 ```python
+#__SOLUTION__
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=43, test_size=.25)
 
 kf = KFold(n_splits=5)
