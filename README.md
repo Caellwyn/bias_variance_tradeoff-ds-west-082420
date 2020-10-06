@@ -31,7 +31,7 @@ https://towardsdatascience.com/cultural-overfitting-and-underfitting-or-why-the-
 # What is a “Model”?
 
  - A “model” is a general specification of relationships among variables. 
-     - E.G. Linear Regression: or $ Price = \beta_1*Time +  \beta_0 + \epsilon$
+     - E.G. Linear Regression: or $ Price = \beta_1*Y_{t-1} +  \beta_0 + \epsilon$
 
 
  
@@ -136,7 +136,7 @@ $\Large Total\ Error = Model\ Bias^2 + Model\ Variance + Irreducible\ Error$
 # Thought Experiment
 
 1. Imagine you've collected 23 different training sets for the same problem.
-2. Now imagine using one algorithm to train 23 models, one for each of your training sets.
+2. Now imagine training one model on each of your 23 training sets.
 3. Bias vs. variance refers to the accuracy vs. consistency of the models trained by your algorithm.
 
 ![target_bias_variance](img/target.png)
@@ -158,29 +158,34 @@ df = df.iloc[:,:12]
 df.head()
 ```
 
-Let's create a set of 100 trained models by randomly selecting 5000 records, and look at the difference in predictions w.r.t. 1 point.
+Let's create a set of 100 trained models by randomly selecting 1000 records, and look at the difference in predictions w.r.t. 1 point.
 
 
 ```python
 np.random.seed(11)
 
+# Reserve a random sample point for demonstration of bias/variance 
 sample_point = df.sample(1)
 true_sample_price = sample_point.price
-sample_point
 ```
 
 
 ```python
 sample_point.drop('price', axis=1, inplace=True)
 
-print(f'Sample home price {sample_target.values[0]}')
-sample_point.head()
-df.shape
+print(sample_point.head())
 ```
 
 
 ```python
-df.drop(sample_target.index[0], axis=0, inplace=True)
+print(f'Sample home price {true_sample_price.values[0]}')
+
+```
+
+
+```python
+# Remove sample from data set we will train our model on
+df.drop(true_sample_price.index[0], axis=0, inplace=True)
 print(df.shape)
 ```
 
@@ -188,6 +193,7 @@ print(df.shape)
 ```python
 ### from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression
 np.random.seed(11)
 
 # Let's generate random subsets of our data
@@ -197,7 +203,7 @@ simple_rmse = []
 
 for i in range(100):
     
-    # Sample 5000 random homes
+    # Sample 1000 random homes
     df_sample = df.sample(1000, replace=True)
     y = df_sample.price
     X = df_sample.drop('price', axis=1)
@@ -213,7 +219,6 @@ for i in range(100):
     
     # Predict a value for the sample point
     y_hat_point = lr.predict(sample_point)
-    
     point_preds_simp.append(y_hat_point)
     
 
@@ -269,7 +274,6 @@ for i in range(100):
     lr.fit(X, y)
     y_hat = lr.predict(X)
     complex_rmse.append(np.sqrt(mean_squared_error(y, y_hat)))
-    r_2.append(lr.score(X,y))
     
     y_hat_point = lr.predict(sample_point)
     
@@ -301,6 +305,11 @@ sns.violinplot(point_preds_comp, ax=ax2, orient='h', color='yellow')
 ax2.axvline(true_sample_price.values[0])
 ax2.set_title("Complex Model");
 ```
+
+![stretch goal](https://media.giphy.com/media/XBG7hzVQymRJk2LPpE/giphy.gif)
+
+If you are curious after class, try fitting a 3rd order polynomial and plot the predictions w.r.t. the sample point. The mean of your predictions should align more tightly around the true value, but the variance should be much larger.
+
 
 # 4.  Explore Bias Variance Tradeoff
 
@@ -366,6 +375,7 @@ df = pd.read_csv('data/king_county.csv', index_col='id')
 y = df.price
 X = df[['bedrooms', 'sqft_living']]
 
+# For test size, we generally choose a number between .2 and .3.  
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, test_size = .25)
 
 print(X_train.shape)
@@ -388,10 +398,15 @@ If the model performs way worse on the  unseen data, it is probably  overfitting
 
 <img src='https://developers.google.com/machine-learning/crash-course/images/WorkflowWithTestSet.svg' width=500/>
 
-# Word Play in groups
+# Word Play
 
 Fill in the variable to correctly finish the sentences.
 
+
+
+```python
+one_random_student(student_first_names)
+```
 
 
 ```python
@@ -417,6 +432,19 @@ over = "In otherwords, it is overfit."
 under = "In otherwords, it is underfit."
 other = 'That is an abberation'
 good = "In otherwords, we have a solid model"
+
+print('###############One##################')
+print(one)
+print('###############Two##################')
+print(two)
+print('##############Three#################')
+print(three)
+print('##############Four##############')
+print(four)
+print('##############Five#################')
+print(five)
+print('##############Six################')
+print(six)
 
 
 
@@ -511,7 +539,7 @@ df.head()
 
 
 ```python
-poly_2 = PolynomialFeatures(3)
+poly_2 = PolynomialFeatures(3, include_bias=False)
 
 X_poly = pd.DataFrame(
             poly_2.fit_transform(df.drop('price', axis=1))
@@ -594,7 +622,9 @@ We tune our parameters on the training set using kfolds, then validate on the te
 
 
 ```python
-one_random_student(student_first_names)
+from src.student_caller import one_random_student, three_random_students
+from src.student_list import student_first_names
+three_random_students(student_first_names)
 ```
 
 
@@ -698,4 +728,9 @@ lr_final = LinearRegression()
 lr_final.fit(X_train, y_train)
 
 lr_final.score(X_test, y_test)
+```
+
+
+```python
+
 ```
